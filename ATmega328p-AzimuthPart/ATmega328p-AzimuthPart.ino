@@ -35,7 +35,7 @@
  */
 
 #define PULSE_ENCODER_A 8
-#define PULSE_ENCODER_A 9
+#define PULSE_ENCODER_B 9
 
 SoftwareSerial RS422 = SoftwareSerial(RS422_RX, RS422_TX);
 
