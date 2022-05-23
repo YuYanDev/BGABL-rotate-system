@@ -17,17 +17,16 @@
  * TX - TX
  * RX - RX
  */
-#define RS422_TX 2
-#define RS422_RX 3
+#define Serial2_TX 2
+#define Serial2_RX 3
 
 /**
  * @brief For Geared Motor Defined
  *
  */
 #define GEARED_MOTOR_DIRECTION_SWITCH 4
-#define GEARED_MOTOR_CW_PWM 5
-#define GEARED_MOTOR_CCW_PWM 6
-#define GEARED_MOTOR_POWER_SWITCH 7
+#define GEARED_MOTOR_PWM 5
+#define GEARED_MOTOR_POWER_SWITCH 6
 
 /**
  * @brief Pulse encoder
@@ -45,9 +44,9 @@ int PreviousPulseEncoderStatusA = 1;
 int PreviousPulseEncoderStatusB = 0;
 int PulseEncoderCount = 0;
 
-int GearedMotorStatus = 0;
+int GearedMotorStatus = -1;
 
-SoftwareSerial RS422 = SoftwareSerial(RS422_RX, RS422_TX);
+SoftwareSerial Serial2 = SoftwareSerial(Serial2_RX, Serial2_TX);
 
 char buffer1[24];
 
@@ -67,6 +66,7 @@ void initPulseEncoder() {
         PreviousPulseEncoderStatusB = digitalRead(PULSE_ENCODER_B);
     } else {
         Serial.println("ERROR:PULSE_ENCODER_FAIL");
+        Serial2.println("ERROR:PULSE_ENCODER_FAIL");
     }
 }
 
@@ -103,25 +103,64 @@ void readPulseEncoder() {
         }
     } else {
         Serial.println("ERROR:PULSE_ENCODER_FAIL");
+        Serial2.println("ERROR:PULSE_ENCODER_FAIL");
     }
 }
 
 void printADXL345() {
-    RS422.print("ADXL345Z_ANGLE:");
-    RS422.println(ADXL345ZAngle);
-    // Serial.print("Xa= ");
-    // Serial.print(ADXL345XOut);
-    // Serial.print("   Ya= ");
-    // Serial.print(ADXL345YOut);
-    // Serial.print("   Za= ");
-    // Serial.println(ADXL345ZOut);
-    // Serial.print("ADXL345ZAngle: ");
-    // Serial.println(ADXL345ZAngle);
+    Serial.print("ADXL345Z_ANGLE:");
+    Serial.println(ADXL345ZAngle);
+    Serial.print("Xa= ");
+    Serial.print(ADXL345XOut);
+    Serial.print("   Ya= ");
+    Serial.print(ADXL345YOut);
+    Serial.print("   Za= ");
+    Serial.println(ADXL345ZOut);
+    Serial.print("ADXL345ZAngle: ");
+    Serial.println(ADXL345ZAngle);
+
+    Serial2.print("ADXL345Z_ANGLE:");
+    Serial2.println(ADXL345ZAngle);
+    Serial2.print("Xa= ");
+    Serial2.print(ADXL345XOut);
+    Serial2.print("   Ya= ");
+    Serial2.print(ADXL345YOut);
+    Serial2.print("   Za= ");
+    Serial2.println(ADXL345ZOut);
+    Serial2.print("ADXL345ZAngle: ");
+    Serial2.println(ADXL345ZAngle);
+}
+
+/**
+ * @brief Get info from Serial
+ * Serial is Hardware serial
+ * Serial2 is Software serial
+ * TODO: bug
+ */
+void readSerial() {
+    if (Serial.available() > 0) {
+        delay(100);
+        Serial.readBytes(buffer1, 12);
+        Serial2.println(buffer1);
+    }
+}
+
+void initGearedMotor() {
+    pinMode(GEARED_MOTOR_DIRECTION_SWITCH, OUTPUT);
+    pinMode(GEARED_MOTOR_PWM, OUTPUT);
+    pinMode(GEARED_MOTOR_POWER_SWITCH, OUTPUT);
+}
+
+void startGearedMotor(int direction, int speed = 100) {
+    digitalWrite(GEARED_MOTOR_DIRECTION_SWITCH, 0);
+    analogWrite(GEARED_MOTOR_PWM, speed / 100 * 255);
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 1);
+    GearedMotorStatus = direction;
 }
 
 void setup() {
     Serial.begin(9600);
-    RS422.begin(9600);
+    Serial2.begin(9600);
     initADXL345();
     delay(10);
     // initPulseEncoder();
@@ -131,9 +170,5 @@ void loop() {
     readADXL345();
     // readPulseEncoder();
     printADXL345();
-    if (RS422.available() > 0) {
-        delay(100);
-        RS422.readBytes(buffer1, 12);
-        Serial.println(buffer1);
-    }
+    readSerial();
 }
