@@ -44,7 +44,9 @@ int PreviousPulseEncoderStatusA = 1;
 int PreviousPulseEncoderStatusB = 0;
 int PulseEncoderCount = 0;
 
-int GearedMotorStatus = -1;
+int GearedMotorStatus = 0;
+
+float targetAngle = 0;
 
 SoftwareSerial Serial2 = SoftwareSerial(Serial2_RX, Serial2_TX);
 
@@ -152,11 +154,22 @@ void initGearedMotor() {
 }
 
 void startGearedMotor(int direction, int speed = 100) {
+    PulseEncoderCount = 0;
     digitalWrite(GEARED_MOTOR_DIRECTION_SWITCH, 0);
     analogWrite(GEARED_MOTOR_PWM, speed / 100 * 255);
     digitalWrite(GEARED_MOTOR_POWER_SWITCH, 1);
-    GearedMotorStatus = direction;
+    GearedMotorStatus = direction + 1;
 }
+
+void stopGearedMotor() {
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
+    analogWrite(GEARED_MOTOR_PWM, 0);
+    digitalWrite(GEARED_MOTOR_DIRECTION_SWITCH, 0);
+    GearedMotorStatus = 0;
+    PulseEncoderCount = 0;
+}
+
+void checkIsGearedMotorReachDesignated() {}
 
 void setup() {
     Serial.begin(9600);
@@ -168,7 +181,11 @@ void setup() {
 
 void loop() {
     readADXL345();
-    // readPulseEncoder();
+    if (GearedMotorStatus > 0) {
+        // readPulseEncoder();
+        // checkIsGearedMotorReachDesignated();
+    }
+
     printADXL345();
     readSerial();
 }
