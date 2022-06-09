@@ -8,6 +8,7 @@
  * @copyright Copyright (c) 2022
  *
  */
+#include <EEPROM.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
 
@@ -24,20 +25,38 @@
  * @brief For Geared Motor Defined
  *
  */
-#define GEARED_MOTOR_DIRECTION_SWITCH 4
-#define GEARED_MOTOR_PWM 5
-#define GEARED_MOTOR_POWER_SWITCH 6
+#define GEARED_MOTOR_DIRECTION_STATUS_CW 1
+#define GEARED_MOTOR_DIRECTION_STATUS_CCW 2
+
+// H IO define
+#define GEARED_MOTOR_CW_SWITCH 4
+#define GEARED_MOTOR_CW_PWM 5
+#define GEARED_MOTOR_CCW_SWITCH 7
+#define GEARED_MOTOR_CCW_PWM 6
+#define GEARED_MOTOR_POWER_SWITCH 8
 
 /**
  * @brief Pulse encoder
  *
  */
 
-#define PULSE_ENCODER_A 8
-#define PULSE_ENCODER_B 9
+#define PULSE_ENCODER_A A2
+#define PULSE_ENCODER_B A3
+
+/**
+ * @brief EEPROM
+ *
+ */
+#define PULSE_ENCODER_ANGLE_EEPROM_ADDRESS 1
+
+// Public config variable
 
 int ADXL345 = 0x53;
 
+// Geared Motor Reduction ratio
+int ReductionRatio = 580;
+
+// Private variable
 float ADXL345XOut, ADXL345YOut, ADXL345ZOut, ADXL345ZAngle;
 
 int PreviousPulseEncoderStatusA = 1;
@@ -50,7 +69,7 @@ float targetAngle = 0;
 
 SoftwareSerial Serial2 = SoftwareSerial(Serial2_RX, Serial2_TX);
 
-char buffer1[24];
+char SerialReadBuffer[32];
 
 void initADXL345() {
     Wire.begin();                     // Initiate the Wire library
@@ -133,6 +152,45 @@ void printADXL345() {
     Serial2.println(ADXL345ZAngle);
 }
 
+void initGearedMotor() {
+    pinMode(GEARED_MOTOR_CW_SWITCH, OUTPUT);
+    pinMode(GEARED_MOTOR_CW_PWM, OUTPUT);
+    pinMode(GEARED_MOTOR_CCW_SWITCH, OUTPUT);
+    pinMode(GEARED_MOTOR_CCW_PWM, OUTPUT);
+    pinMode(GEARED_MOTOR_POWER_SWITCH, OUTPUT);
+}
+
+void startGearedMotor(int direction, int speed = 100) {
+    PulseEncoderCount = 0;
+    digitalWrite(GEARED_MOTOR_CW_SWITCH, 1);
+    analogWrite(GEARED_MOTOR_CW_PWM, speed / 100 * 255);
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 1);
+    GearedMotorStatus = direction + 1;
+}
+
+void stopGearedMotor() {
+    digitalWrite(GEARED_MOTOR_CW_SWITCH, 0);
+    analogWrite(GEARED_MOTOR_CW_SWITCH, 0);
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
+    GearedMotorStatus = 0;
+    PulseEncoderCount = 0;
+}
+
+void checkIsGearedMotorReachDesignated() {
+    // PulseEncoderCheck
+    float currentRotatePulseEncoderAngle = 0;
+    if (PulseEncoderCount > 0) {
+        currentRotatePulseEncoderAngle =
+            (PulseEncoderCount * 90) / ReductionRatio;
+    }
+    // EEPROM.put(PULSE_ENCODER_ANGLE_EEPROM_ADDRESS,
+    // currentRotatePulseEncoderAngle); ADXL345Check
+}
+
+void rotateGearedMotor() {
+    startGearedMotor(GEARED_MOTOR_CW_PWM);
+}
+
 /**
  * @brief Get info from Serial
  * Serial is Hardware serial
@@ -142,34 +200,10 @@ void printADXL345() {
 void readSerial() {
     if (Serial.available() > 0) {
         delay(100);
-        Serial.readBytes(buffer1, 12);
-        Serial2.println(buffer1);
+        Serial.readBytes(SerialReadBuffer, 12);
+        Serial2.println(SerialReadBuffer);
     }
 }
-
-void initGearedMotor() {
-    pinMode(GEARED_MOTOR_DIRECTION_SWITCH, OUTPUT);
-    pinMode(GEARED_MOTOR_PWM, OUTPUT);
-    pinMode(GEARED_MOTOR_POWER_SWITCH, OUTPUT);
-}
-
-void startGearedMotor(int direction, int speed = 100) {
-    PulseEncoderCount = 0;
-    digitalWrite(GEARED_MOTOR_DIRECTION_SWITCH, 0);
-    analogWrite(GEARED_MOTOR_PWM, speed / 100 * 255);
-    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 1);
-    GearedMotorStatus = direction + 1;
-}
-
-void stopGearedMotor() {
-    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
-    analogWrite(GEARED_MOTOR_PWM, 0);
-    digitalWrite(GEARED_MOTOR_DIRECTION_SWITCH, 0);
-    GearedMotorStatus = 0;
-    PulseEncoderCount = 0;
-}
-
-void checkIsGearedMotorReachDesignated() {}
 
 void setup() {
     Serial.begin(9600);
