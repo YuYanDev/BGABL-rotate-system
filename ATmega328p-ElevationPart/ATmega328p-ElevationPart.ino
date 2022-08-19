@@ -8,9 +8,6 @@
  * @copyright Copyright (c) 2022
  *
  */
-#include <EEPROM.h>
-#include <SoftwareSerial.h>
-#include <Wire.h>
 
 /**
  * @brief important!!!!
@@ -18,91 +15,56 @@
  * TX - TX
  * RX - RX
  */
-#define Serial2_TX 2
-#define Serial2_RX 3
 
-/**
- * @brief For Geared Motor Defined
- *
- */
-#define GEARED_MOTOR_DIRECTION_STATUS_CW 1
-#define GEARED_MOTOR_DIRECTION_STATUS_CCW 2
+#include <Wire.h>
+// #include <avr/wdt.h>
 
-// H IO define
-#define GEARED_MOTOR_CW_SWITCH 4
-#define GEARED_MOTOR_CW_PWM 5
-#define GEARED_MOTOR_CCW_SWITCH 7
-#define GEARED_MOTOR_CCW_PWM 6
-#define GEARED_MOTOR_POWER_SWITCH 8
+#define IS_DEBUG true
 
-/**
- * @brief Pulse encoder
- *
- */
-
-#define PULSE_ENCODER_A A2
-#define PULSE_ENCODER_B A3
-
-/**
- * @brief EEPROM
- *
- */
-#define PULSE_ENCODER_ANGLE_EEPROM_ADDRESS 1
-
-// Public config variable
+#define GEARED_MOTOR_POWER_SWITCH 2
+#define GEARED_MOTOR_POWER_CW 5
+#define GEARED_MOTOR_POWER_CCW 6
 
 int ADXL345 = 0x53;
 
-// Geared Motor Reduction ratio
-int ReductionRatio = 580;
-
-// Private variable
 float ADXL345XOut, ADXL345YOut, ADXL345ZOut, ADXL345ZAngle;
 
-int PreviousPulseEncoderStatusA = 1;
-int PreviousPulseEncoderStatusB = 0;
-int PulseEncoderCount = 0;
-
-int GearedMotorStatus = 0;
-
-float targetAngle = 0;
-
-SoftwareSerial Serial2 = SoftwareSerial(Serial2_RX, Serial2_TX);
-
-char SerialReadBuffer[32];
-
-void initADXL345() {
-    Wire.begin();                     // Initiate the Wire library
-    Wire.beginTransmission(ADXL345);  // Start communicating with the device
-    Wire.write(0x2D);  // Access/ talk to POWER_CTL Register - 0x2D
-    Wire.write(8);
-    Wire.endTransmission();
+void startRotateCW(String serialString) {
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
+    digitalWrite(GEARED_MOTOR_POWER_CCW, 0);
+    digitalWrite(GEARED_MOTOR_POWER_CW, 1);
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 1);
+    Serial.println("+CW:OK");
 }
 
-void initPulseEncoder() {
-    pinMode(PULSE_ENCODER_A, INPUT);
-    pinMode(PULSE_ENCODER_B, INPUT);
-    if (digitalRead(PULSE_ENCODER_A) != digitalRead(PULSE_ENCODER_B)) {
-        PreviousPulseEncoderStatusA = digitalRead(PULSE_ENCODER_A);
-        PreviousPulseEncoderStatusB = digitalRead(PULSE_ENCODER_B);
-    } else {
-        Serial.println("ERROR:PULSE_ENCODER_FAIL");
-        Serial2.println("ERROR:PULSE_ENCODER_FAIL");
-    }
+void startRotateCCW(String serialString) {
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
+    digitalWrite(GEARED_MOTOR_POWER_CW, 0);
+    digitalWrite(GEARED_MOTOR_POWER_CCW, 1);
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 1);
+    Serial.println("+CCW:OK");
 }
+
+void stopRotate() {
+    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
+    digitalWrite(GEARED_MOTOR_POWER_CW, 0);
+    digitalWrite(GEARED_MOTOR_POWER_CCW, 0);
+    Serial.println("+STOP:OK");
+}
+
+void resetRotate() {}
 
 void readADXL345() {
     Wire.beginTransmission(ADXL345);
-    Wire.write(0x32);  // Start with register 0x32 (ACCEL_XOUT_H)
+    Wire.write(0x32);
     Wire.endTransmission(false);
-    Wire.requestFrom(ADXL345, 6, true);  // Read 6 registers total, each axis
-    // value is stored in 2 registers
-    ADXL345XOut = (Wire.read() | Wire.read() << 8);  // X-axis value
-    ADXL345XOut =
-        ADXL345XOut / 256;  // For a range of +-2g, we need to divide the raw
-    ADXL345YOut = (Wire.read() | Wire.read() << 8);  // Y-axis value
+    Wire.requestFrom(ADXL345, 6, true);
+
+    ADXL345XOut = (Wire.read() | Wire.read() << 8);
+    ADXL345XOut = ADXL345XOut / 256;
+    ADXL345YOut = (Wire.read() | Wire.read() << 8);
     ADXL345YOut = ADXL345YOut / 256;
-    ADXL345ZOut = (Wire.read() | Wire.read() << 8);  // Z-axis value
+    ADXL345ZOut = (Wire.read() | Wire.read() << 8);
     ADXL345ZOut = ADXL345ZOut / 256;
 
     if (ADXL345XOut > 0) {
@@ -112,114 +74,101 @@ void readADXL345() {
     }
 }
 
-void readPulseEncoder() {
-    const int currentPulseEncoderStatusA = digitalRead(PULSE_ENCODER_A);
-    const int currentPulseEncoderStatusB = digitalRead(PULSE_ENCODER_B);
-    if (currentPulseEncoderStatusA != currentPulseEncoderStatusB) {
-        if (PreviousPulseEncoderStatusA != currentPulseEncoderStatusA &&
-            PreviousPulseEncoderStatusB != currentPulseEncoderStatusB) {
-            PreviousPulseEncoderStatusA = currentPulseEncoderStatusA;
-            PreviousPulseEncoderStatusB = currentPulseEncoderStatusB;
-            PulseEncoderCount++;
-        }
-    } else {
-        Serial.println("ERROR:PULSE_ENCODER_FAIL");
-        Serial2.println("ERROR:PULSE_ENCODER_FAIL");
-    }
-}
-
 void printADXL345() {
-    Serial.print("ADXL345Z_ANGLE:");
-    Serial.println(ADXL345ZAngle);
-    Serial.print("Xa= ");
+    Serial.print("+ANGLE:");
     Serial.print(ADXL345XOut);
-    Serial.print("   Ya= ");
+    Serial.print(",");
     Serial.print(ADXL345YOut);
-    Serial.print("   Za= ");
-    Serial.println(ADXL345ZOut);
-    Serial.print("ADXL345ZAngle: ");
+    Serial.print(",");
+    Serial.print(ADXL345ZOut);
+    Serial.print(",");
     Serial.println(ADXL345ZAngle);
-
-    Serial2.print("ADXL345Z_ANGLE:");
-    Serial2.println(ADXL345ZAngle);
-    Serial2.print("Xa= ");
-    Serial2.print(ADXL345XOut);
-    Serial2.print("   Ya= ");
-    Serial2.print(ADXL345YOut);
-    Serial2.print("   Za= ");
-    Serial2.println(ADXL345ZOut);
-    Serial2.print("ADXL345ZAngle: ");
-    Serial2.println(ADXL345ZAngle);
 }
 
-void initGearedMotor() {
-    pinMode(GEARED_MOTOR_CW_SWITCH, OUTPUT);
-    pinMode(GEARED_MOTOR_CW_PWM, OUTPUT);
-    pinMode(GEARED_MOTOR_CCW_SWITCH, OUTPUT);
-    pinMode(GEARED_MOTOR_CCW_PWM, OUTPUT);
+void onSerialCall() {
+    String serialString;
+
+    // 当串口有数据则循环运行如下处理
+    while (Serial.available()) {
+        serialString = serialString + (char)Serial.read();
+    }
+
+    if (IS_DEBUG) {
+        Serial.print("GetSerial");
+        Serial.println(serialString);
+    }
+
+    if (serialString == "AT+HAND") {
+        Serial.print("+HAND:OK");
+        // wdt_enable(WDTO_2S);
+        return;
+    }
+
+    if (serialString == "AT+BYE") {
+        Serial.print("+BYE:OK");
+        // wdt_disable();
+    }
+
+    if (serialString.indexOf("AT+CCW") > -1) {
+        startRotateCCW(serialString);
+        // wdt_reset();
+        return;
+    }
+
+    if (serialString.indexOf("AT+CW") > -1) {
+        startRotateCW(serialString);
+        // wdt_reset();
+        return;
+    }
+
+    if (serialString == "AT+STOP") {
+        stopRotate();
+        // wdt_reset();
+        return;
+    }
+
+    if (serialString == "AT+RESET") {
+        resetRotate();
+        // wdt_reset();
+        return;
+    }
+
+    if (serialString == "AT+ANGLE?") {
+        readADXL345();
+        printADXL345();
+        // wdt_reset();
+        return;
+    }
+}
+
+void initPIN() {
     pinMode(GEARED_MOTOR_POWER_SWITCH, OUTPUT);
-}
-
-void startGearedMotor(int direction, int speed = 100) {
-    PulseEncoderCount = 0;
-    digitalWrite(GEARED_MOTOR_CW_SWITCH, 1);
-    analogWrite(GEARED_MOTOR_CW_PWM, speed / 100 * 255);
-    digitalWrite(GEARED_MOTOR_POWER_SWITCH, 1);
-    GearedMotorStatus = direction + 1;
-}
-
-void stopGearedMotor() {
-    digitalWrite(GEARED_MOTOR_CW_SWITCH, 0);
-    analogWrite(GEARED_MOTOR_CW_SWITCH, 0);
     digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
-    GearedMotorStatus = 0;
-    PulseEncoderCount = 0;
+    pinMode(GEARED_MOTOR_POWER_CW, OUTPUT);
+    digitalWrite(GEARED_MOTOR_POWER_CW, 0);
+    pinMode(GEARED_MOTOR_POWER_CCW, OUTPUT);
+    digitalWrite(GEARED_MOTOR_POWER_CCW, 0);
 }
 
-void checkIsGearedMotorReachDesignated() {
-    // PulseEncoderCheck
-    float currentRotatePulseEncoderAngle = 0;
-    if (PulseEncoderCount > 0) {
-        currentRotatePulseEncoderAngle =
-            (PulseEncoderCount * 90) / ReductionRatio;
-    }
-    // EEPROM.put(PULSE_ENCODER_ANGLE_EEPROM_ADDRESS,
-    // currentRotatePulseEncoderAngle); ADXL345Check
-}
-
-void rotateGearedMotor() {
-    startGearedMotor(GEARED_MOTOR_CW_PWM);
-}
-
-/**
- * @brief Get info from Serial
- * Serial is Hardware serial
- * Serial2 is Software serial
- * TODO: bug
- */
-void readSerial() {
-    if (Serial.available() > 0) {
-        delay(100);
-        Serial.readBytes(SerialReadBuffer, 12);
-        Serial2.println(SerialReadBuffer);
-    }
+void initADXL345() {
+    Wire.begin();
+    Wire.beginTransmission(ADXL345);
+    Wire.write(0x2D);
+    Wire.write(8);
+    Wire.endTransmission();
 }
 
 void setup() {
     Serial.begin(9600);
-    Serial2.begin(9600);
+    initPIN();
     initADXL345();
-    delay(10);
-    // initPulseEncoder();
+    Serial.println("+SYS:OK");
+    delay(100);
 }
 
 void loop() {
-    readADXL345();
-    if (GearedMotorStatus > 0) {
-        // readPulseEncoder();
-        // checkIsGearedMotorReachDesignated();
+    if (Serial.available()) {
+        onSerialCall();
     }
-
-    printADXL345();
-    readSerial();
+    delay(100);
 }

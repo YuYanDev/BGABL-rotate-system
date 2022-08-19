@@ -8,7 +8,7 @@
  * @copyright Copyright (c) 2022
  *
  */
-#include <Wire.h>
+
 // #include <avr/wdt.h>
 
 #define IS_DEBUG true
@@ -17,9 +17,6 @@
 #define GEARED_MOTOR_POWER_CW 5
 #define GEARED_MOTOR_POWER_CCW 6
 
-int ADXL345 = 0x53;
-
-float ADXL345XOut, ADXL345YOut, ADXL345ZOut, ADXL345ZAngle;
 
 void startRotateCW(String serialString) {
     digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
@@ -45,37 +42,6 @@ void stopRotate() {
 }
 
 void resetRotate() {}
-
-void readADXL345() {
-    Wire.beginTransmission(ADXL345);
-    Wire.write(0x32);
-    Wire.endTransmission(false);
-    Wire.requestFrom(ADXL345, 6, true);
-
-    ADXL345XOut = (Wire.read() | Wire.read() << 8);
-    ADXL345XOut = ADXL345XOut / 256;
-    ADXL345YOut = (Wire.read() | Wire.read() << 8);
-    ADXL345YOut = ADXL345YOut / 256;
-    ADXL345ZOut = (Wire.read() | Wire.read() << 8);
-    ADXL345ZOut = ADXL345ZOut / 256;
-
-    if (ADXL345XOut > 0) {
-        ADXL345ZAngle = ADXL345YOut * 90;
-    } else {
-        ADXL345ZAngle = 180 - ADXL345YOut * 90;
-    }
-}
-
-void printADXL345() {
-    Serial.print("+ANGLE:");
-    Serial.print(ADXL345XOut);
-    Serial.print(",");
-    Serial.print(ADXL345YOut);
-    Serial.print(",");
-    Serial.print(ADXL345ZOut);
-    Serial.print(",");
-    Serial.println(ADXL345ZAngle);
-}
 
 void onSerialCall() {
     String serialString;
@@ -124,13 +90,6 @@ void onSerialCall() {
         // wdt_reset();
         return;
     }
-
-    if (serialString == "AT+ANGLE?") {
-        readADXL345();
-        printADXL345();
-        // wdt_reset();
-        return;
-    }
 }
 
 void initPIN() {
@@ -142,18 +101,10 @@ void initPIN() {
     digitalWrite(GEARED_MOTOR_POWER_CCW, 0);
 }
 
-void initADXL345() {
-    Wire.begin();
-    Wire.beginTransmission(ADXL345);
-    Wire.write(0x2D);
-    Wire.write(8);
-    Wire.endTransmission();
-}
 
 void setup() {
     Serial.begin(9600);
     initPIN();
-    initADXL345();
     Serial.println("+SYS:OK");
     delay(100);
 }
