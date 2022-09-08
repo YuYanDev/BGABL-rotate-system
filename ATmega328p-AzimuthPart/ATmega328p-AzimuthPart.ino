@@ -17,6 +17,12 @@
 #define GEARED_MOTOR_POWER_CW 5
 #define GEARED_MOTOR_POWER_CCW 6
 
+void readAngle() {
+    int data = analogRead(A1);
+    float originAngle = data / 1024 * 360;
+    Serial.print("AT+ANGLE:");
+    Serial.println(originAngle);
+}
 
 void startRotateCW(String serialString) {
     digitalWrite(GEARED_MOTOR_POWER_SWITCH, 0);
@@ -85,6 +91,12 @@ void onSerialCall() {
         return;
     }
 
+    if (serialString == "AT+ANGLE?") {
+        readAngle();
+        // wdt_reset();
+        return;
+    }
+
     if (serialString == "AT+RESET") {
         resetRotate();
         // wdt_reset();
@@ -100,7 +112,6 @@ void initPIN() {
     pinMode(GEARED_MOTOR_POWER_CCW, OUTPUT);
     digitalWrite(GEARED_MOTOR_POWER_CCW, 0);
 }
-
 
 void setup() {
     Serial.begin(9600);
