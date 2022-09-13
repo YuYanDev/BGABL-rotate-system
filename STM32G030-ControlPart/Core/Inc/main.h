@@ -71,14 +71,14 @@ void Error_Handler(void);
 #define AZ_CCW_LED_GPIO_Port GPIOA
 #define AZ_CW_LED_Pin GPIO_PIN_12
 #define AZ_CW_LED_GPIO_Port GPIOA
-#define EL_CCW_ENABLE_Pin GPIO_PIN_0
-#define EL_CCW_ENABLE_GPIO_Port GPIOD
-#define EL_CW_ENABLE_Pin GPIO_PIN_1
+#define EL_CW_ENABLE_Pin GPIO_PIN_0
 #define EL_CW_ENABLE_GPIO_Port GPIOD
-#define AZ_CCW_ENABLE_Pin GPIO_PIN_2
-#define AZ_CCW_ENABLE_GPIO_Port GPIOD
-#define AZ_CW_ENABLE_Pin GPIO_PIN_3
+#define EL_CCW_ENABLE_Pin GPIO_PIN_1
+#define EL_CCW_ENABLE_GPIO_Port GPIOD
+#define AZ_CW_ENABLE_Pin GPIO_PIN_2
 #define AZ_CW_ENABLE_GPIO_Port GPIOD
+#define AZ_CCW_ENABLE_Pin GPIO_PIN_3
+#define AZ_CCW_ENABLE_GPIO_Port GPIOD
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
